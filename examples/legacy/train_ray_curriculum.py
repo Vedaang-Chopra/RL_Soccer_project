@@ -1,17 +1,19 @@
 import yaml
+from pathlib import Path
 
 import ray
 from ray import tune
 from ray.rllib.agents.callbacks import DefaultCallbacks
 from soccer_twos import EnvType
 
-from utils import create_rllib_env, sample_pos_vel, sample_player
+from soccer_twos_project.envs import create_rllib_env, sample_pos_vel, sample_player
 
 
 NUM_ENVS_PER_WORKER = 3
 
 current = 0
-with open("curriculum.yaml") as f:
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+with open(PROJECT_ROOT / "configs" / "curriculum.yaml") as f:
     curriculum = yaml.load(f, Loader=yaml.FullLoader)
 tasks = curriculum["tasks"]
 config_fns = {

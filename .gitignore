@@ -1,5 +1,6 @@
 envs/
 ray_results/
+artifacts/
 ceia_baseline_agent/
 data/
 

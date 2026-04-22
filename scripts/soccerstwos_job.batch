@@ -5,7 +5,7 @@
 # Date: 2026
 
 # Replace gburdell3 with your GT username.
-# Replace the training script name with the actual script you want to run.
+# Replace the training stage/profile with the actual run you want.
 
 #SBATCH --job-name=soccerstwos
 #SBATCH -N4 --ntasks-per-node=8
@@ -18,6 +18,5 @@
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate soccerstwos
 
-# Run the training script
-python example_ray_ppo_sp_still.py
-
+# Run the organized training entrypoint
+python -m soccer_twos_project.training train --stage ppo_baseline --profile auto

@@ -2,7 +2,7 @@ import ray
 from ray import tune
 from soccer_twos import EnvType
 
-from utils import create_rllib_env
+from soccer_twos_project.envs import create_rllib_env
 
 
 NUM_ENVS_PER_WORKER = 3

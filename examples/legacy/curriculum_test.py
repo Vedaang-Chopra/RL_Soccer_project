@@ -1,12 +1,14 @@
 import time
 import yaml
+from pathlib import Path
 
 import soccer_twos
 from soccer_twos import EnvType
-from utils import sample_pos_vel, sample_player
+from soccer_twos_project.envs import sample_pos_vel, sample_player
 
 current = 0
-with open("curriculum.yaml") as f:
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+with open(PROJECT_ROOT / "configs" / "curriculum.yaml") as f:
     curriculum = yaml.load(f, Loader=yaml.FullLoader)
 tasks = curriculum["tasks"]
 config_fns = {
