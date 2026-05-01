@@ -50,11 +50,17 @@ Run the notebooks in order:
 - `notebooks/02_methods_baseline_shaping_curriculum_imitation.ipynb`
 - `notebooks/03_full_training_pipeline.ipynb`
 - `notebooks/04_submission_and_report.ipynb`
+- `notebooks/05_submission_smoke_test.ipynb`
 
-The original all-in-one runner remains available at `notebooks/CS8803_SoccerTwos_Project.ipynb`.
+Use the staged notebook sequence above for the maintained workflow. The old
+all-in-one notebook was removed to avoid duplicate execution paths.
 
 ### 7. Or train from the command line
 python -m soccer_twos_project.training train --stage ppo_baseline --profile auto
+
+The `auto` profile detects CUDA through PyTorch. If CUDA is available, training
+uses a GPU profile and Ray/RLlib receives `num_gpus=1`; otherwise it falls back
+to CPU-safe settings.
 
 Available organized stages are `ppo_baseline`, `ppo_shaped`, `ppo_curriculum`,
 `ppo_selfplay`, and `dqn_baseline`.
@@ -88,4 +94,3 @@ To examine the baseline agent, you must extract the `ceia_baseline_agent` folder
 `python -m soccer_twos.watch -m1 examples.agents.example_player_agent -m2 ceia_baseline_agent`
 
 , to examine the random agent vs. the baseline agent.
-

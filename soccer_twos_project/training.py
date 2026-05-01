@@ -12,15 +12,21 @@ from soccer_twos_project.config import (
     PROFILES,
     artifact_dirs,
     checkpoint_path,
+    cuda_training_report,
     ensure_artifact_dirs,
     fallback_profile,
     hardware_report,
     json_safe,
     profile_dict,
     select_profile,
+    validate_training_profile,
     write_json,
 )
 from soccer_twos_project.envs import create_rllib_env, sample_player, sample_pos_vel
+from soccer_twos_project.mlagents_compat import (
+    find_free_port_block,
+    patch_unity_environment_close,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -42,6 +48,19 @@ STAGES = {
         "experiment": "soccer_ppo_curriculum",
         "criterion": "curriculum policy performance",
     },
+    # Continued curriculum run (resumed from ppo_curriculum checkpoint).
+    # Saves to a separate folder so the original run is preserved.
+    "ppo_curriculum_v2": {
+        "algo": "PPO",
+        "experiment": "soccer_ppo_curriculum_v2",
+        "criterion": "curriculum policy performance (extended)",
+    },
+    # 10M step extended curriculum run
+    "ppo_curriculum_v3": {
+        "algo": "PPO",
+        "experiment": "soccer_ppo_curriculum_v3",
+        "criterion": "curriculum policy performance (10M extended)",
+    },
     "ppo_selfplay": {
         "algo": "PPO",
         "experiment": "soccer_ppo_selfplay",
@@ -62,8 +81,12 @@ RETRYABLE_ERROR_TEXT = (
     "worker died",
     "connection refused",
     "address already in use",
-    "port",
+    "failed to bind",
     "unity",
+)
+NON_RETRYABLE_ERROR_TEXT = (
+    "pytorch cuda is not ready for runtime training",
+    "no kernel image is available for execution on the device",
 )
 
 
@@ -177,6 +200,7 @@ def selfplay_spaces(profile):
 
     env_config = {
         "render": False,
+        "base_port": find_free_port_block(count=unity_port_count(profile)),
         "num_envs_per_worker": profile.num_envs_per_worker,
         "variation": EnvType.multiagent_player,
     }
@@ -199,6 +223,10 @@ def base_env_config(profile):
         "flatten_branched": True,
         "opponent_policy": lambda *_: 0,
     }
+
+
+def unity_port_count(profile) -> int:
+    return max(1, (profile.num_workers + 1) * profile.num_envs_per_worker)
 
 
 def build_training_config(stage: str, profile, timesteps: Optional[int] = None) -> Dict:
@@ -232,9 +260,13 @@ def build_training_config(stage: str, profile, timesteps: Optional[int] = None) 
                 },
                 "rollout_fragment_length": profile.rollout_fragment_length,
                 "train_batch_size": profile.train_batch_size,
+                "sgd_minibatch_size": max(profile.train_batch_size // 10, 256),
+                # Clamp gradients — prevents NaN logits from gradient overflow
+                # with large batches and many parallel workers.
+                "grad_clip": 0.5,
             }
         )
-    elif stage == "ppo_curriculum":
+    elif stage in ("ppo_curriculum", "ppo_curriculum_v2", "ppo_curriculum_v3"):
         config.update(
             {
                 "callbacks": curriculum_callback_class(),
@@ -244,7 +276,10 @@ def build_training_config(stage: str, profile, timesteps: Optional[int] = None) 
                     "fcnet_activation": "relu",
                 },
                 "rollout_fragment_length": max(profile.rollout_fragment_length, 1000),
+                "train_batch_size": profile.train_batch_size,
+                "sgd_minibatch_size": max(profile.train_batch_size // 10, 256),
                 "batch_mode": "complete_episodes",
+                "grad_clip": 0.5,
             }
         )
     elif stage == "ppo_selfplay":
@@ -269,7 +304,10 @@ def build_training_config(stage: str, profile, timesteps: Optional[int] = None) 
                     "fcnet_activation": "relu",
                 },
                 "rollout_fragment_length": max(profile.rollout_fragment_length, 2000),
+                "train_batch_size": profile.train_batch_size,
+                "sgd_minibatch_size": max(profile.train_batch_size // 10, 256),
                 "batch_mode": "complete_episodes",
+                "grad_clip": 0.5,
             }
         )
     elif stage == "dqn_baseline":
@@ -294,10 +332,46 @@ def build_stop(profile, timesteps: Optional[int] = None, time_total_s: Optional[
     return stop
 
 
+def get_eta_callback_class():
+    from ray.tune import Callback
+    import time
+
+    class ETACallback(Callback):
+        def __init__(self, stop_dict):
+            self.stop_dict = stop_dict
+            self.start_time = None
+
+        def on_trial_start(self, iteration, trials, trial, **info):
+            self.start_time = time.time()
+
+        def on_trial_result(self, iteration, trials, trial, result, **info):
+            if self.start_time is None:
+                self.start_time = time.time()
+                return
+
+            elapsed = time.time() - self.start_time
+            timesteps = result.get("timesteps_total", 0)
+            target_timesteps = self.stop_dict.get("timesteps_total")
+
+            if timesteps > 0 and target_timesteps and elapsed > 0:
+                rate = timesteps / elapsed
+                remaining_steps = target_timesteps - timesteps
+                if remaining_steps > 0:
+                    eta_seconds = remaining_steps / rate
+                    mins, secs = divmod(int(eta_seconds), 60)
+                    hours, mins = divmod(mins, 60)
+                    print(f"\n--- Estimated Time Remaining: {hours:02d}h {mins:02d}m {secs:02d}s ---\n")
+    return ETACallback
+
+
+
 def smoke_test_env(steps: int = 10, base_port: Optional[int] = None):
+    patch_unity_environment_close()
     import soccer_twos
     from soccer_twos import EnvType
 
+    if base_port is None:
+        base_port = find_free_port_block()
     env = soccer_twos.make(
         render=False,
         variation=EnvType.team_vs_policy,
@@ -305,13 +379,15 @@ def smoke_test_env(steps: int = 10, base_port: Optional[int] = None):
         single_player=True,
         base_port=base_port,
     )
-    obs = env.reset()
-    for _ in range(steps):
-        action = env.action_space.sample()
-        obs, reward, done, info = env.step(action)
-        if done_all(done):
-            obs = env.reset()
-    env.close()
+    try:
+        obs = env.reset()
+        for _ in range(steps):
+            action = env.action_space.sample()
+            obs, reward, done, info = env.step(action)
+            if done_all(done):
+                obs = env.reset()
+    finally:
+        env.close()
     print("Headless smoke test passed for {} random steps.".format(steps))
 
 
@@ -327,6 +403,8 @@ def should_retry(exc: BaseException) -> bool:
     text = "{}\n{}".format(exc, traceback.format_exc()).lower()
     if "json serializable" in text:
         return False
+    if any(fragment in text for fragment in NON_RETRYABLE_ERROR_TEXT):
+        return False
     return any(fragment in text for fragment in RETRYABLE_ERROR_TEXT)
 
 
@@ -334,21 +412,35 @@ def run_tune(stage, profile, args, retrying=False):
     import ray
     from ray import tune
 
+    patch_unity_environment_close()
+    cuda_report = validate_training_profile(profile)
     spec = STAGES[stage]
     dirs = ensure_artifact_dirs(args.artifact_root)
     local_dir = str(dirs["checkpoints"])
     config = build_training_config(stage, profile, timesteps=args.timesteps)
     stop = build_stop(profile, timesteps=args.timesteps, time_total_s=args.time_total_s)
+    env_config = config.get("env_config", {})
+    if getattr(args, "base_port", None) is not None:
+        env_config["base_port"] = args.base_port
+    elif "base_port" not in env_config:
+        env_config["base_port"] = find_free_port_block(count=unity_port_count(profile))
 
     if retrying:
         print("Retrying with conservative single-worker settings.")
     print("Hardware:", json.dumps(hardware_report(), indent=2))
     print("Profile:", json.dumps(profile_dict(profile), indent=2))
+    print("CUDA training:", json.dumps(cuda_report, indent=2))
     print("Stage:", stage)
     print("Stop:", stop)
+    print("Unity base_port:", env_config.get("base_port"))
 
+    if ray.is_initialized():
+        ray.shutdown()
     ray.init(ignore_reinit_error=True, include_dashboard=False)
     tune.registry.register_env("Soccer", create_rllib_env)
+    
+    eta_callback = get_eta_callback_class()(stop)
+    
     analysis = tune.run(
         spec["algo"],
         name=spec["experiment"],
@@ -359,6 +451,7 @@ def run_tune(stage, profile, args, retrying=False):
         local_dir=local_dir,
         restore=checkpoint_path(args.restore) if args.restore else None,
         verbose=getattr(args, "verbose", 1),
+        callbacks=[eta_callback],
     )
 
     best_trial = analysis.get_best_trial("episode_reward_mean", mode="max")
@@ -377,6 +470,7 @@ def run_tune(stage, profile, args, retrying=False):
             "criterion": spec["criterion"],
             "profile": profile_dict(profile),
             "hardware": hardware_report(),
+            "cuda_training": cuda_training_report(profile),
             "stop": stop,
             "local_dir": local_dir,
             "best_trial": str(best_trial),

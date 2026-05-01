@@ -1,0 +1,51 @@
+{
+  "action_mode": "flat_discrete",
+  "action_nvec": null,
+  "action_size": 27,
+  "action_space_size": 27,
+  "agent_name": "soccer_ppo_curriculum_v3",
+  "algo": "PPO",
+  "author": "Vedaang Chopra",
+  "criterion": "curriculum policy performance (10M extended)",
+  "description": "PPO curriculum (V3): 20M timesteps.",
+  "email": "vedaangchopra@gatech.edu",
+  "hidden_layers": [
+    256,
+    256
+  ],
+  "obs_size": 336,
+  "policy_id": "default_policy",
+  "source_checkpoint": "/coc/scratch/vchopra/rl_training/project/soccer-twos-starter/artifacts/cs8803_soccer_twos/checkpoints/soccer_ppo_curriculum_v3/PPO_Soccer_0b1b1_00000_0_2026-04-23_18-09-05/checkpoint_000360/checkpoint-360",
+  "stage": "ppo_curriculum_v3",
+  "training_config": {
+    "batch_mode": "complete_episodes",
+    "callbacks": "<class 'soccer_twos_project.training.curriculum_callback_class.<locals>.RayCurriculumUpdateCallback'>",
+    "env": "Soccer",
+    "env_config": {
+      "flatten_branched": true,
+      "multiagent": false,
+      "num_envs_per_worker": 1,
+      "opponent_policy": "<function base_env_config.<locals>.<lambda> at 0x7e5088647670>",
+      "render": false,
+      "single_player": true,
+      "variation": "<EnvType.team_vs_policy: 'team_vs_policy'>"
+    },
+    "framework": "torch",
+    "grad_clip": 0.5,
+    "log_level": "INFO",
+    "model": {
+      "fcnet_activation": "relu",
+      "fcnet_hiddens": [
+        256,
+        256
+      ],
+      "vf_share_layers": true
+    },
+    "num_envs_per_worker": 1,
+    "num_gpus": 0,
+    "num_workers": 0,
+    "rollout_fragment_length": 1000,
+    "sgd_minibatch_size": 256,
+    "train_batch_size": 1000
+  }
+}

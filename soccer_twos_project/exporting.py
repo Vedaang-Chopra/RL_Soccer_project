@@ -164,6 +164,17 @@ def action_space_details(space) -> Dict:
 
 
 def extract_mlp_state(policy, expected_action_size: int):
+    # Prefer the RLlib state_dict layout when available. Module traversal order
+    # is not reliable here: RLlib can register the logits head before the shared
+    # hidden stack, which causes us to export only the output layer.
+    try:
+        return extract_mlp_state_from_weights(
+            policy.model.state_dict(), expected_action_size
+        )
+    except Exception as e:
+        print("extract_mlp_state_from_weights failed:", e)
+        pass
+
     import torch
 
     linears = [

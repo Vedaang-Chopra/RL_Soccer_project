@@ -5,6 +5,11 @@ import gym
 from ray.rllib import MultiAgentEnv
 import soccer_twos
 
+from soccer_twos_project.mlagents_compat import patch_unity_environment_close
+
+
+patch_unity_environment_close()
+
 
 class RLLibWrapper(gym.core.Wrapper, MultiAgentEnv):
     """

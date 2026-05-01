@@ -11,6 +11,7 @@ import torch.nn.functional as F
 
 from soccer_twos_project.config import ensure_artifact_dirs
 from soccer_twos_project.exporting import write_agent_package
+from soccer_twos_project.mlagents_compat import patch_unity_environment_close
 
 
 BASELINE_FILE_ID = "1WEjr48D7QG9uVy1tf4GJAZTpimHtINzE"
@@ -88,6 +89,7 @@ def download_baseline(output_dir: Path):
 
 
 def collect_dataset(args):
+    patch_unity_environment_close()
     import soccer_twos
 
     dirs = ensure_artifact_dirs(args.artifact_root)
@@ -208,6 +210,7 @@ def train_bc(args):
         "policy_id": "behavior_cloning",
         "obs_size": obs_size,
         "action_size": action_size,
+        "action_mode": "discrete",
         "hidden_layers": hidden_layers,
     }
     package_path = write_agent_package(output_dir, metadata, model.state_dict(), not args.no_zip)

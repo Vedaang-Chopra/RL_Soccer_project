@@ -9,6 +9,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 
 from soccer_twos_project.config import ensure_artifact_dirs
+from soccer_twos_project.mlagents_compat import patch_unity_environment_close
 
 
 def get_agent_class(module):
@@ -22,6 +23,7 @@ def get_agent_class(module):
 
 
 def load_agent(module_name: str, base_port=None):
+    patch_unity_environment_close()
     import soccer_twos
 
     env = soccer_twos.make(render=False, base_port=base_port)
@@ -40,6 +42,7 @@ def done_all(done) -> bool:
 
 
 def evaluate(agent1_name: str, agent2_name: str, episodes: int, base_port=None):
+    patch_unity_environment_close()
     import soccer_twos
 
     agent1 = load_agent(agent1_name, base_port=base_port)
