@@ -3,26 +3,25 @@
 \providecommand\hyper@newdestlabel[2]{}
 \providecommand\HyField@AuxAddToFields[1]{}
 \providecommand\HyField@AuxAddToCoFields[2]{}
-\citation{juliani2018unity}
-\citation{soccertwosstarter}
-\citation{schulman2017proximal,liang2018rllib}
-\citation{ng1999policy}
-\citation{bengio2009curriculum}
 \@writefile{toc}{\contentsline {section}{\numberline {1}Overview}{1}{section.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {2}Method Description}{1}{section.2}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Mean episode reward over training steps for baseline PPO, reward-shaped PPO, curriculum PPO, and the extended curriculum v3 policy.}}{2}{figure.1}\protected@file@percent }
-\newlabel{fig:curves}{{1}{2}{Mean episode reward over training steps for baseline PPO, reward-shaped PPO, curriculum PPO, and the extended curriculum v3 policy}{figure.1}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Recorded headless evaluation summaries. Match counts are small and should be interpreted as preliminary evidence.}}{2}{table.1}\protected@file@percent }
-\newlabel{tab:eval}{{1}{2}{Recorded headless evaluation summaries. Match counts are small and should be interpreted as preliminary evidence}{table.1}{}}
+\citation{ng1999policy}
+\citation{bengio2009curriculum}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Main PPO training configurations used in the project.}}{2}{table.1}\protected@file@percent }
+\newlabel{tab:methods}{{1}{2}{Main PPO training configurations used in the project}{table.1}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {3}Preliminary Results}{2}{section.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {4}Reward, Observation, and Architecture Modifications}{2}{section.4}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Mean episode reward over training for baseline PPO, reward-shaped PPO, curriculum PPO, and the extended curriculum v3 policy. Reward shaping improves over the sparse-reward baseline, but curriculum training gives the largest gain.}}{3}{figure.1}\protected@file@percent }
+\newlabel{fig:curves}{{1}{3}{Mean episode reward over training for baseline PPO, reward-shaped PPO, curriculum PPO, and the extended curriculum v3 policy. Reward shaping improves over the sparse-reward baseline, but curriculum training gives the largest gain}{figure.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Recorded headless evaluation summaries for the final curriculum v3 policy. Match counts are small, so these results are preliminary.}}{3}{table.2}\protected@file@percent }
+\newlabel{tab:eval}{{2}{3}{Recorded headless evaluation summaries for the final curriculum v3 policy. Match counts are small, so these results are preliminary}{table.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Reward, Observation, and Architecture Modifications}{3}{section.4}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Gameplay screenshots from the final \texttt  {TEAMNAME\_v3\_AGENT} evaluated in the SoccerTwos environment. The agent (blue team) consistently moves toward the ball and positions itself to score.}}{4}{figure.2}\protected@file@percent }
+\newlabel{fig:gameplay}{{2}{4}{Gameplay screenshots from the final \texttt {TEAMNAME\_v3\_AGENT} evaluated in the SoccerTwos environment. The agent (blue team) consistently moves toward the ball and positions itself to score}{figure.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Detailed diagnostics for the final \texttt  {ppo\_curriculum\_v3} run. Mean reward stabilizes near 2.0, episode length decreases substantially, and PPO diagnostics show stable convergence behavior.}}{4}{figure.3}\protected@file@percent }
+\newlabel{fig:v3_diagnostics}{{3}{4}{Detailed diagnostics for the final \texttt {ppo\_curriculum\_v3} run. Mean reward stabilizes near 2.0, episode length decreases substantially, and PPO diagnostics show stable convergence behavior}{figure.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Limitations and Future Work}{4}{section.5}\protected@file@percent }
 \bibdata{example}
-\bibcite{juliani2018unity}{{1}{2018}{{Juliani et~al.}}{{Juliani, Berges, Vckay, Gao, Henry, Mattar, and Lange}}}
-\bibcite{soccertwosstarter}{{2}{2026}{{Oliveira and Staff}}{{}}}
-\bibcite{schulman2017proximal}{{3}{2017}{{Schulman et~al.}}{{Schulman, Wolski, Dhariwal, Radford, and Klimov}}}
-\bibcite{liang2018rllib}{{4}{2018}{{Liang et~al.}}{{Liang, Liaw, Nishihara, Moritz, Fox, Goldberg, Gonzalez, Jordan, and Stoica}}}
-\bibcite{ng1999policy}{{5}{1999}{{Ng et~al.}}{{Ng, Harada, and Russell}}}
-\bibcite{bengio2009curriculum}{{6}{2009}{{Bengio et~al.}}{{Bengio, Louradour, Collobert, and Weston}}}
-\@writefile{toc}{\contentsline {section}{\numberline {5}Limitations and Future Work}{3}{section.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}GitHub Link}{3}{section.6}\protected@file@percent }
-\gdef \@abspage@last{3}
+\bibcite{ng1999policy}{{1}{1999}{{Ng et~al.}}{{Ng, Harada, and Russell}}}
+\bibcite{bengio2009curriculum}{{2}{2009}{{Bengio et~al.}}{{Bengio, Louradour, Collobert, and Weston}}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}GitHub Link}{5}{section.6}\protected@file@percent }
+\gdef \@abspage@last{5}

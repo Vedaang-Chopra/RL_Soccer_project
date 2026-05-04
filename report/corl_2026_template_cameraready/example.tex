@@ -5,6 +5,7 @@
 \usepackage{booktabs}
 \usepackage{amsmath}
 \usepackage{array}
+\usepackage{url}
 \setlength{\textfloatsep}{6pt}
 \setlength{\floatsep}{6pt}
 \setlength{\intextsep}{6pt}
@@ -22,47 +23,78 @@
 \maketitle
 
 \begin{abstract}
-This project trains SoccerTwos agents for a sparse-reward Unity ML-Agents soccer task using Proximal Policy Optimization (PPO). I compare a plain PPO baseline, a reward-shaped PPO variant, and curriculum PPO policies trained with progressively harder start states. The main source-visible reward change adds clipped dense bonuses for reducing player-to-ball and ball-to-goal distances during training. The strongest exported policy, \texttt{TEAMNAME\_v3\_AGENT}, is a curriculum PPO agent trained for 30.0M environment steps and evaluated through the repository's headless match runner. Curriculum PPO produced the best observed learning reward and beat the baseline PPO package in 8 of 10 recorded evaluation matches.
+This project studies PPO-based policy learning in SoccerTwos, a sparse-reward Unity soccer environment where agents must learn to reach the ball, move it toward goal, and score with limited feedback. A plain PPO baseline learned slowly, so I compared it against two modifications: reward shaping with small dense bonuses for ball-directed progress, and curriculum learning with progressively harder start states. Reward shaping improved early training from 0.2399 to 0.4036 mean episode reward at the same 2M-step budget, but curriculum training produced the strongest policy. The final curriculum v3 agent, exported as \texttt{TEAMNAME\_v3\_AGENT}, reached 1.9692 final mean episode reward after about 30M environment steps and won 8 of 10 recorded matches against the PPO baseline. These results suggest that the main bottleneck was sparse-reward exploration, and that curriculum learning was the most effective way to address it.
 \end{abstract}
 
 \keywords{Reinforcement Learning, SoccerTwos, Curriculum Learning}
 
+
 \section{Overview}
-SoccerTwos is a competitive 2-vs-2 soccer environment built on Unity ML-Agents~\citep{juliani2018unity} and distributed through a starter kit~\citep{soccertwosstarter}, where goals are sparse and useful exploration is difficult. The implemented training pipeline uses Ray RLlib PPO~\citep{schulman2017proximal,liang2018rllib} with PyTorch policies, training a single controlled player in the \texttt{team\_vs\_policy} variation against a fixed opponent policy. The training interface uses a 336-dimensional observation vector and a flattened \texttt{Discrete(27)} action space; exported agents convert flat logits back to the live branched action interface when needed.
+
+SoccerTwos is a two-team Unity soccer environment where cube agents must learn to move, approach the ball, defend, and score goals through interaction. The task is challenging because the default reward is sparse: many trajectories contain little useful feedback unless the agent reaches meaningful soccer events such as scoring or conceding. I treated this as a policy-learning problem and used PPO as the base algorithm because it is stable, widely used for continuous interaction environments, and supported by the RLlib training pipeline used in the project. The main goal was to test whether additional structure could make PPO learn better soccer behavior. I therefore compared a sparse-reward PPO baseline, a reward-shaped PPO agent with dense progress signals, and a curriculum PPO agent that starts from easier states before training on harder game situations. The final submitted policy, \texttt{TEAMNAME\_v3\_AGENT}, was produced by extending the best curriculum PPO checkpoint to a longer training budget.
+
+% \begin{figure}[t]
+%     \centering
+%     \includegraphics[width=0.65\linewidth]{figures/envt.png}
+%     \caption{SoccerTwos environment used for training and evaluation. The task requires cube agents to move in the arena, interact with the ball, and score in the opponent goal.}
+%     \label{fig:env_screenshot}
+% \end{figure}
+
 
 \section{Method Description}
+
 \textbf{PPO baseline.}
-The baseline uses RLlib PPO with a feed-forward ReLU policy/value network and shared value layers. PPO optimizes a clipped surrogate objective, which limits each policy update so rollout data can improve the policy without very large destructive probability-ratio changes. The baseline and shaped variants use one hidden layer of width 512, \texttt{vf\_share\_layers=True}, and the default sparse environment reward.
+I used Proximal Policy Optimization (PPO) as the baseline policy-gradient method. The baseline agent was trained with the default sparse SoccerTwos reward and a feed-forward ReLU actor-critic network. PPO was a reasonable starting point because it constrains policy updates through a clipped objective, which helps prevent large unstable updates from rollout data. In the baseline and reward-shaped runs, the policy/value model used one hidden layer of width 512 with shared value layers.
 
 \textbf{Reward-shaped PPO.}
-The reward-modified agent wraps the training environment with a dense shaping term computed from the environment \texttt{info} dictionary. Let $d_{pb}$ be the player-to-ball distance and $d_{bg}$ be the ball-to-goal distance. At each transition, the wrapper adds
+The first modification was to add dense reward shaping during training. The SoccerTwos task is difficult because useful rewards are sparse: an agent may move for many steps without receiving clear feedback about whether it is getting closer to useful soccer behavior. To reduce this exploration burden, I wrapped the training environment with a shaping term computed from the environment \texttt{info} dictionary. Let $d_{pb}$ denote the player-to-ball distance and $d_{bg}$ denote the ball-to-goal distance. At each transition, the wrapper adds
 \[
 r_{\mathrm{shape}} =
 \mathrm{clip}\left(0.01(d_{pb}^{t-1}-d_{pb}^{t}) +
 0.02(d_{bg}^{t-1}-d_{bg}^{t}), -0.05, 0.05\right).
 \]
-This rewards movement toward the ball and ball progress toward the target goal while keeping the bonus small relative to scoring events. The shaping code is used only during training, so the submitted agent does not depend on privileged \texttt{info} fields at inference time. This follows the motivation of reward shaping for accelerating sparse-reward learning~\citep{ng1999policy}.
+This gives a small positive bonus when the controlled player moves closer to the ball or when the ball moves closer to the opponent goal. The clipping keeps the shaping reward small relative to actual scoring outcomes, so the shaped signal guides exploration without replacing the main task objective. This shaping is used only during training; the exported policy does not require privileged \texttt{info} fields at inference time. This design follows the general motivation of reward shaping for sparse-reward RL~\citep{ng1999policy}.
 
 \textbf{Curriculum PPO.}
-The curriculum variant changes the learning setup rather than the final environment API. A callback sets ball and player initial states through the Unity environment channel and advances across five tasks, from ``Very Easy Goal'' to ``Random Players,'' when \texttt{episode\_reward\_mean} exceeds 1.5. Curriculum PPO uses a deeper MLP, \([256,256]\), with ReLU activations and shared value layers. The final v3 policy resumed the curriculum run and extended training to about 30.0M environment steps, following the curriculum-learning hypothesis that easier early states reduce sparse-reward exploration burden before broadening state difficulty~\citep{bengio2009curriculum}.
+The second modification was curriculum learning. Instead of training immediately from the full difficult game distribution, the curriculum starts the agent in easier situations and gradually increases the difficulty. A callback sets the initial ball and player states through the Unity environment channel and advances through five tasks, from ``Very Easy Goal'' to ``Random Players,'' when the running \texttt{episode\_reward\_mean} exceeds 1.5. This makes early exploration more productive: the agent first learns simple ball-to-goal behavior, then transfers that behavior to harder starting states. The curriculum policy also used a deeper ReLU MLP with hidden layers \([256,256]\) and shared value layers. The final v3 policy resumed the strongest curriculum checkpoint and extended training to about 30.0M environment steps, following the curriculum-learning idea that easier early tasks can improve learning in sparse-reward settings~\citep{bengio2009curriculum}.
 
 \textbf{Final hyperparameters.}
-The submitted v3 run used Ray RLlib PPO with PyTorch, learning rate \(5\times10^{-5}\), \(\gamma=0.99\), PPO clip 0.3, 30 SGD epochs, train batch 80,000, minibatch 8,000, rollout fragment 2,000, gradient clip 0.5, 40 workers, 1 GPU, shared value layers, and a ReLU MLP \([256,256]\).
-
-\section{Preliminary Results}
-Figure~\ref{fig:curves} compares the learning curves from the available Ray \texttt{progress.csv} logs. The baseline PPO run reached final mean reward 0.2399 after 2.0M steps. Reward-shaped PPO improved the same-budget final reward to 0.4036. The first curriculum run reached 1.7869 at 2.06M steps, and the extended v3 run reached final mean reward 1.9692 with a best logged mean reward of 1.9705 at 29.85M steps.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.88\linewidth]{figures/learning_curves_overlay.png}
-\caption{Mean episode reward over training steps for baseline PPO, reward-shaped PPO, curriculum PPO, and the extended curriculum v3 policy.}
-\label{fig:curves}
-\end{figure}
+The submitted policy was trained with Ray RLlib PPO using the PyTorch backend. The final v3 run used a learning rate of \(5\times10^{-5}\), discount factor \(\gamma=0.99\), PPO clipping parameter 0.3, 30 SGD epochs per update, train batch size 80,000, minibatch size 8,000, rollout fragment length 2,000, gradient clipping at 0.5, 40 rollout workers, and 1 GPU. The exported submission package was \texttt{TEAMNAME\_v3\_AGENT}.
 
 \begin{table}[t]
 \centering
 \small
-\caption{Recorded headless evaluation summaries. Match counts are small and should be interpreted as preliminary evidence.}
+\caption{Main PPO training configurations used in the project.}
+\label{tab:methods}
+\begin{tabular}{lccc}
+\toprule
+Method & Reward & Curriculum & Network \\
+\midrule
+PPO baseline & sparse & no & [512] \\
+Reward-shaped PPO & sparse + shaping & no & [512] \\
+Curriculum PPO & sparse + curriculum setup & yes & [256, 256] \\
+Curriculum PPO v3 & resumed curriculum & yes & [256, 256] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Preliminary Results}
+
+Figure~\ref{fig:curves} summarizes the main training result. Plain PPO struggled under the sparse SoccerTwos reward and reached only 0.2399 final mean episode reward after 2.0M environment steps. Adding reward shaping improved the same-budget result to 0.4036, which suggests that dense progress feedback helped exploration but was not sufficient by itself. The largest improvement came from curriculum learning: the first curriculum run reached 1.7869 mean reward after 2.06M steps, while the extended curriculum v3 run reached 1.9692 final mean reward, with a best logged mean reward of 1.9705 at 29.85M steps. Overall, the curves indicate that curriculum design was the most important factor for learning useful SoccerTwos behavior.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/all_comaprison.png}
+\caption{Mean episode reward over training for baseline PPO, reward-shaped PPO, curriculum PPO, and the extended curriculum v3 policy. Reward shaping improves over the sparse-reward baseline, but curriculum training gives the largest gain.}
+\label{fig:curves}
+\end{figure}
+
+Table~\ref{tab:eval} reports the recorded headless evaluation matches for the final curriculum v3 policy. Because the number of evaluation episodes is small, these results should be treated as preliminary rather than definitive. Still, the v3 policy won 8 of 10 matches against the PPO baseline and 6 of 10 matches against the earlier curriculum policy, which is consistent with the learning-curve improvement.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Recorded headless evaluation summaries for the final curriculum v3 policy. Match counts are small, so these results are preliminary.}
 \label{tab:eval}
 \begin{tabular}{lrrrr}
 \toprule
@@ -74,21 +106,49 @@ Curriculum v3 vs. curriculum & 10 & 6 & 0.3407 & -0.4258 \\
 \end{tabular}
 \end{table}
 
+\begin{figure}[t]
+\centering
+\begin{minipage}[t]{0.48\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{figures/figure-gameplay-1.png}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{figures/fig-gameplay-2.png}
+\end{minipage}
+\caption{Gameplay screenshots from the final \texttt{TEAMNAME\_v3\_AGENT} evaluated in the SoccerTwos environment. The agent (blue team) consistently moves toward the ball and positions itself to score.}
+\label{fig:gameplay}
+\end{figure}
+
+Figure~\ref{fig:v3_diagnostics} shows the detailed training diagnostics for the final curriculum v3 run. The mean episode reward quickly approached 2.0 and remained stable, while episode length dropped sharply and then stabilized. This suggests that the final policy learned to reach terminal soccer outcomes more efficiently. The PPO diagnostics also show decreasing entropy and value loss, which is consistent with the policy becoming less random and the critic fitting the return signal more accurately. 
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/best_rl_algo.png}
+\caption{Detailed diagnostics for the final \texttt{ppo\_curriculum\_v3} run. Mean reward stabilizes near 2.0, episode length decreases substantially, and PPO diagnostics show stable convergence behavior.}
+\label{fig:v3_diagnostics}
+\end{figure}
+
+
 \section{Reward, Observation, and Architecture Modifications}
+
 \textbf{Reward modification.}
-The concrete reward change is the training-only \texttt{RewardShapingWrapper}. It computes distance deltas from \texttt{player\_info} and \texttt{ball\_info}, clips the shaping bonus to \(\pm 0.05\), and adds the bonus to scalar or dictionary rewards. Compared with the baseline, this increased the 2.0M-step training reward from 0.2399 to 0.4036, suggesting faster early progress but not the strongest final policy.
+The main reward-level change is the training-only \texttt{RewardShapingWrapper}. Instead of relying only on sparse scoring rewards, the wrapper uses \texttt{player\_info} and \texttt{ball\_info} to compute progress signals: whether the player moves closer to the ball and whether the ball moves closer to the opponent goal. The shaping bonus is clipped to \(\pm 0.05\) and added to the environment reward during training. This modification improved the 2.0M-step mean episode reward from 0.2399 for baseline PPO to 0.4036 for reward-shaped PPO, suggesting that dense progress feedback helped early exploration, although it was not sufficient to produce the strongest final policy.
 
 \textbf{Observation and action handling.}
-I did not find a custom observation-space wrapper or Unity-side observation change in the final code. The implemented interface change is configuration-level: training uses a single-player 336-dimensional vector with flattened \texttt{Discrete(27)} actions, while live matches use branched \texttt{MultiDiscrete([3,3,3])} actions. The report therefore does not claim a custom observation rewrite.
+I did not implement a custom observation-space wrapper or Unity-side observation rewrite in the final policy. The agent uses the provided 336-dimensional SoccerTwos observation vector during training. The main interface handling is action-related: the training pipeline uses a flattened \texttt{Discrete(27)} action space, while live SoccerTwos matches use the branched \texttt{MultiDiscrete([3,3,3])} action format. Because no custom observation features were added, this report does not claim an observation modification.
 
-\textbf{Architecture and learning modification.}
-The final policy changes both learning schedule and network shape relative to the baseline. Baseline and shaped PPO use a single 512-unit hidden layer, while curriculum PPO uses a two-layer \([256,256]\) MLP. More importantly, curriculum training changes the distribution of starting states so the agent first learns near-goal behavior before facing harder ball and player placements. The results support the hypothesis: curriculum training produced substantially higher learning rewards and better recorded match outcomes than baseline PPO.
+\textbf{Architecture and curriculum modification.}
+The final policy differs from the baseline in both network structure and training schedule. The baseline and reward-shaped PPO agents use a single hidden layer of width 512, while the curriculum PPO agents use a two-layer \([256,256]\) ReLU MLP with shared value layers. More importantly, curriculum training changes the distribution of initial states: the agent first trains on easier near-goal situations and then progresses to harder ball and player placements. This curriculum was the most effective modification in the project, producing substantially higher learning rewards and better recorded match outcomes than baseline PPO.
+
 
 \section{Limitations and Future Work}
-The recorded evaluation set is small: the strongest comparison against baseline contains 10 episodes, not the planned 100-episode final evaluation. No screenshots or videos were found in the project artifacts, so this report uses learning curves and numerical summaries rather than visual gameplay evidence. Future work should run larger evaluations against random, baseline, and TA agents; compare shaped PPO directly against curriculum v3 in head-to-head matches; and test whether the curriculum policy remains robust under fully self-play or multi-agent training.
+
+The main limitation is evaluation size. The strongest recorded comparison against the PPO baseline contains 10 headless episodes, not a larger 100-episode evaluation, so the match results should be interpreted as preliminary. Training was also performed in a simplified single-player setting against a fixed opponent policy, so the final agent should not be interpreted as having learned full multi-agent coordination such as passing or team positioning. Imitation learning was explored as an additional direction, but it was not used as the final successful method. Future work should run larger evaluations against random, baseline, and TA agents; compare reward-shaped PPO directly against curriculum v3 in head-to-head matches; and test whether the curriculum policy remains robust under self-play or stronger multi-agent opponents.
 
 \section{GitHub Link}
-\texttt{TODO\_ADD\_GITHUB\_LINK}
+\url{https://github.com/Vedaang-Chopra/RL_Soccer_project}
 
 \bibliography{example}
 

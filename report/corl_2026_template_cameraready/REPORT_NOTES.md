@@ -50,3 +50,35 @@
 - `TODO_ADD_GITHUB_LINK` remains the required GitHub URL placeholder.
 - Run larger final evaluations if time allows, especially against the random agent, baseline agent, and TA agent.
 - Add gameplay screenshots or videos only if real artifacts are generated later.
+
+---
+
+## PROJECT_EXPLANATION Files Created (2026-05-03)
+
+Three teaching-focused Markdown files were created in the repo root to provide a deep, student-facing explanation of the entire project. Each is self-contained and readable independently, but they cross-reference each other.
+
+### `PROJECT_EXPLANATION_1_OVERVIEW.md`
+Covers:
+- What SoccerTwos is and why it is a reinforcement learning problem
+- Environment setup: 336-dim observation, Discrete(27) actions, sparse ±1 reward, episode structure
+- What the starter kit provided and what the baseline PPO approach does
+- Full training pipeline: which notebooks run training, how Ray workers collect rollouts, how PPO updates the policy, how checkpoints are saved, and why curriculum v3 was selected as the final model
+- All algorithms used: PPO baseline, reward-shaped PPO, curriculum PPO (v1/v2/v3), self-play fallback, DQN baseline, and behavior cloning — with conceptual explanation and file references for each
+
+### `PROJECT_EXPLANATION_2_MODIFICATIONS.md`
+Covers:
+- Reward modification: the `RewardShapingWrapper` in `envs.py`, both shaping terms (player-to-ball weight 0.01, ball-to-goal weight 0.02, clip ±0.05), with examples, code snippets, and downsides
+- Observation handling: no custom observation wrapper was added; explains the training-only single-player mode, `flatten_branched=True`, and how the deployed agent converts flat actions back to `MultiDiscrete([3,3,3])` using `ActionFlattener`
+- Architecture modifications: baseline uses `[512]`, curriculum uses `[256,256]`, with the full `PolicyNetwork` forward pass written out and explanation of why depth helps; gradient clipping rationale
+
+### `PROJECT_EXPLANATION_3_RESULTS_AND_ORAL.md`
+Covers:
+- Training results: reward trend table (baseline 0.24 → shaped 0.40 → curriculum v3 1.97), explanation of what rising curves and plateaus mean
+- Evaluation results: curriculum v3 wins 8/10 vs baseline (mean +1.114 vs -1.208), 6/10 vs curriculum v1, with caveats about small sample sizes
+- Final agent breakdown: what each file in `TEAMNAME_v3_AGENT/` does, exactly how the model is loaded and inference runs
+- Report summary: main claims, which results support them, which items are uncertain or TODO
+- Complete file map: all docs, notebooks, Python files, result files, and report files with plain-English descriptions
+- Step-by-step mental model: 15-step end-to-end story from "agent sees field" to "better behaviors emerge"
+- Common confusions: why shaping matters despite small bonus, why high reward ≠ good soccer, training instability causes, algorithm differences, why videos are needed
+- Oral preparation: ready-to-use answers for "what did you modify?", "why?", "what algorithm?", "what results?", "what limitations?"
+
