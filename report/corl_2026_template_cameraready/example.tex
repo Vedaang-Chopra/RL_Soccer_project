@@ -80,7 +80,7 @@ Curriculum PPO v3 & resumed curriculum & yes & [256, 256] \\
 
 \section{Preliminary Results}
 
-Figure~\ref{fig:curves} summarizes the main training result. Plain PPO struggled under the sparse SoccerTwos reward and reached only 0.2399 final mean episode reward after 2.0M environment steps. Adding reward shaping improved the same-budget result to 0.4036, which suggests that dense progress feedback helped exploration but was not sufficient by itself. The largest improvement came from curriculum learning: the first curriculum run reached 1.7869 mean reward after 2.06M steps, while the extended curriculum v3 run reached 1.9692 final mean reward, with a best logged mean reward of 1.9705 at 29.85M steps. Overall, the curves indicate that curriculum design was the most important factor for learning useful SoccerTwos behavior.
+The learning curves from the available Ray progress.csv records are shown in Figure~\ref{fig:curves}. We can see that after 2.0 million steps, the baseline PPO run's final mean reward was 0.2399. The same-budget final reward was enhanced to 0.4036 using reward-shaped PPO. The first curriculum run achieved 1.7869 at 2.06M steps. On the other hand, the extended v3 run achieved a final mean reward of 1.9692 with a best logged mean reward of 1.9705 at 29.85M steps.
 
 \begin{figure}[t]
 \centering
